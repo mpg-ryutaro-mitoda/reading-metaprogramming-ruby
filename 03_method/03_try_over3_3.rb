@@ -5,7 +5,15 @@ TryOver3 = Module.new
 # - `test_` から始まるインスタンスメソッドが実行された場合、このクラスは `run_test` メソッドを実行する
 # - `test_` メソッドがこのクラスに実装されていなくても `test_` から始まるメッセージに応答することができる
 # - TryOver3::A1 には `test_` から始まるインスタンスメソッドが定義されていない
+class TryOver3::A1
+  def run_test
+    nil
+  end
 
+  def method_missing(name, *args)
+    name.start_with?('test_') ? run_test : super
+  end
+end
 
 # Q2
 # 以下要件を満たす TryOver3::A2Proxy クラスを作成してください。
@@ -15,6 +23,20 @@ class TryOver3::A2
   def initialize(name, value)
     instance_variable_set("@#{name}", value)
     self.class.attr_accessor name.to_sym unless respond_to? name.to_sym
+  end
+end
+
+class TryOver3::A2Proxy
+  def initialize(source)
+    @source = source
+  end
+  
+  def method_missing(name, *args)
+    @source.respond_to?(name) ? @source.send(name, *args) : super
+  end
+
+  def respond_to_missing?(sym, *args)
+    @source.respond_to?(sym) || super
   end
 end
 
@@ -37,6 +59,8 @@ module TryOver3::OriginalAccessor2
           self.class.define_method "#{attr_sym}?" do
             @attr == true
           end
+        elsif respond_to?(:hoge?)
+          self.class.remove_method :hoge?
         end
         @attr = value
       end
@@ -51,7 +75,21 @@ end
 # TryOver3::A4::Hoge.run
 # # => "run Hoge"
 # このとき、TryOver3::A4::Hogeという定数は定義されません。
+class TryOver3::A4
+  def self.runners=(*array)
+    @runners = array || []
+  end
 
+  def self.const_missing(name)
+    return super unless @runners.include?(name)
+
+    const_set(name, Class.new do |_klass|
+      def run
+        "run #{name}"
+      end
+    end)
+  end
+end
 
 # Q5. チャレンジ問題！ 挑戦する方はテストの skip を外して挑戦してみてください。
 #
